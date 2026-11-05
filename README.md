@@ -53,6 +53,10 @@ npm run dev                         # http://localhost:5173
 
 Sign in with the superuser you created.
 
+## Frontend design
+
+The UI follows the Base44 version of CVST: navy and wine palette, left sidebar layout, dashboard with stat cards, scan-status donut and severity mix, a Findings page with severity filters and search, a scan report page that live-polls while a scan runs, and a Targets page. Not ported: Google sign-in, MFA/OTP and password-reset email flows (they depend on the Base44 platform).
+
 ## Demo mode vs. real scanning
 
 By default (`CVST_USE_NMAP=False`) scans produce **simulated findings**, labelled `[SIMULATED]`, so you can exercise the whole workflow safely. To run real Nmap service discovery, install [Nmap](https://nmap.org/download.html), put it on your `PATH`, and set `CVST_USE_NMAP=True`.
@@ -68,8 +72,14 @@ By default (`CVST_USE_NMAP=False`) scans produce **simulated findings**, labelle
 | GET | `/api/auth/me/` | |
 | POST | `/api/auth/register/` | disabled unless `CVST_ALLOW_REGISTRATION=True`; always creates an analyst |
 | CRUD | `/api/targets/` | delete is a soft delete |
+| GET | `/api/auth/config/` | public; `{registration_enabled}` so the UI can show or hide "Create one" |
+| CRUD | `/api/targets/` | delete is a soft delete |
 | CRUD | `/api/scans/` | `POST …/{id}/restart/`, `GET …/{id}/summary/` |
-| GET | `/api/vulnerabilities/` | filter by `scan`, `severity`, `service` |
+| GET | `/api/scans/stats/` | `{total, active, completed, failed}` for the dashboard |
+| GET | `/api/vulnerabilities/` | filter by `scan`, `severity`, `service`; `?search=` over title, CVE, description, service |
+| GET | `/api/vulnerabilities/stats/` | `{total, by_severity}`; optional `?scan=<id>` |
+
+List endpoints accept `?page_size=` (default 20, max 200).
 
 Analysts see only their own targets, scans and findings; admins (role `admin` or superuser) see everything.
 

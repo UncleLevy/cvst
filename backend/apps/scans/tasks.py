@@ -8,6 +8,7 @@ from apps.targets.validators import target_host
 from apps.vulnerabilities.models import Vulnerability
 
 from .models import Scan
+from .simulation import simulated_findings
 
 
 def _update(scan: Scan, **fields) -> None:
@@ -18,24 +19,8 @@ def _update(scan: Scan, **fields) -> None:
 
 def _create_simulated_findings(scan: Scan) -> None:
     """Demo-mode findings. Clearly labelled so they are never mistaken for real results."""
-    Vulnerability.objects.create(
-        scan=scan,
-        cve_id="CVE-2021-44228",
-        title="[SIMULATED] Log4Shell Remote Code Execution",
-        description="Simulated finding (demo mode). No real scan was performed.",
-        severity="critical",
-        cvss_score=10.0,
-        port=8080,
-        service="http",
-    )
-    Vulnerability.objects.create(
-        scan=scan,
-        title="[SIMULATED] Open SSH port",
-        description="Simulated finding (demo mode). No real scan was performed.",
-        severity="info",
-        cvss_score=0.0,
-        port=22,
-        service="ssh",
+    Vulnerability.objects.bulk_create(
+        Vulnerability(scan=scan, **finding) for finding in simulated_findings(scan)
     )
 
 

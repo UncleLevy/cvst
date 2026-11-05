@@ -65,6 +65,20 @@ class ScanViewSet(viewsets.ModelViewSet):
         enqueue_scan(scan)
         return Response({"status": "restarted"})
 
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        """Overall scan counts for the dashboard (not limited to one page)."""
+        qs = Scan.objects.all()
+        if not is_admin(request.user):
+            qs = qs.filter(created_by=request.user)
+        by_status = {r["status"]: r["n"] for r in qs.order_by().values("status").annotate(n=Count("id"))}
+        total = sum(by_status.values())
+        completed = by_status.get("completed", 0)
+        failed = by_status.get("failed", 0)
+        return Response(
+            {"total": total, "completed": completed, "failed": failed, "active": total - completed - failed}
+        )
+
     @action(detail=True, methods=["get"])
     def summary(self, request, pk=None):
         scan = self.get_object()

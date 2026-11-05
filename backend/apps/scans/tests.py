@@ -71,14 +71,51 @@ class ApiSmokeTests(APITestCase):
         scan.refresh_from_db()
         self.assertEqual(scan.status, "completed")
         self.assertEqual(scan.progress, 100)
-        self.assertEqual(scan.vulnerabilities.count(), 2)
+        found = scan.vulnerabilities.count()
+        self.assertTrue(3 <= found <= 7)
+        self.assertFalse(scan.vulnerabilities.exclude(description__startswith="[SIMULATED]").exists())
 
         res = self.client.get("/api/scans/")
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(res.data["results"][0]["vulnerability_count"], 2)
+        self.assertEqual(res.data["results"][0]["vulnerability_count"], found)
 
         res = self.client.get(f"/api/scans/{scan.id}/summary/")
-        self.assertEqual(res.data["by_severity"]["critical"], 1)
+        self.assertEqual(res.data["total"], found)
+
+        # Dashboard / findings-page endpoints
+        res = self.client.get("/api/scans/stats/")
+        self.assertEqual(
+            res.data, {"total": 1, "completed": 1, "failed": 0, "active": 0}
+        )
+        res = self.client.get("/api/vulnerabilities/stats/")
+        self.assertEqual(res.data["total"], found)
+        self.assertEqual(sum(res.data["by_severity"].values()), found)
+
+        res = self.client.get(f"/api/vulnerabilities/?scan={scan.id}&page_size=200")
+        self.assertEqual(res.data["count"], found)
+        first = res.data["results"][0]
+        self.assertEqual(first["scan_name"], "First scan")
+        self.assertEqual(first["target_value"], "192.168.1.10")
+
+        sev = first["severity"]
+        res = self.client.get(f"/api/vulnerabilities/?severity={sev}")
+        self.assertTrue(all(v["severity"] == sev for v in res.data["results"]))
+        res = self.client.get("/api/vulnerabilities/?search=zzz-no-match")
+        self.assertEqual(res.data["count"], 0)
+
+    def test_auth_config_is_public(self):
+        res = self.client.get("/api/auth/config/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data, {"registration_enabled": False})
+
+    def test_page_size_param_is_capped(self):
+        self.login()
+        for i in range(25):
+            Target.objects.create(
+                name=f"t{i}", target_type="ip", value=f"10.0.0.{i + 1}", created_by=self.user
+            )
+        self.assertEqual(len(self.client.get("/api/targets/").data["results"]), 20)
+        self.assertEqual(len(self.client.get("/api/targets/?page_size=50").data["results"]), 25)
 
     def test_users_cannot_see_or_scan_each_others_targets(self):
         target = Target.objects.create(

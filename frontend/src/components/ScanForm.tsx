@@ -1,16 +1,24 @@
+import { Crosshair, Loader2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import api, { errorMessage } from "../api/client";
-import type { ScanType, Target } from "../types";
+import api, { errorMessage } from "@/api/client";
+import { cn } from "@/lib/utils";
+import { listOf, type Paginated, type ScanType, type Target } from "@/types";
 
-const SCAN_TYPES: { value: ScanType; label: string }[] = [
-  { value: "network", label: "Network discovery" },
-  { value: "web", label: "Web application" },
-  { value: "full", label: "Full assessment" },
+const SCAN_TYPES: { value: ScanType; label: string; hint: string }[] = [
+  { value: "network", label: "Network discovery", hint: "Open ports, exposed services" },
+  { value: "web", label: "Web application", hint: "Headers, TLS, injection checks" },
+  { value: "full", label: "Full assessment", hint: "Both modules in one pass" },
 ];
 
-export default function ScanForm({ onCreated, onCancel }: { onCreated: () => void; onCancel: () => void }) {
-  const [targets, setTargets] = useState<Target[] | null>(null);
+interface ScanFormProps {
+  onCreated: () => void;
+  onCancel?: () => void;
+}
+
+export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
+  const [targets, setTargets] = useState<Target[]>([]);
+  const [loadingTargets, setLoadingTargets] = useState(true);
   const [name, setName] = useState("");
   const [targetId, setTargetId] = useState("");
   const [scanType, setScanType] = useState<ScanType>("network");
@@ -19,112 +27,130 @@ export default function ScanForm({ onCreated, onCancel }: { onCreated: () => voi
 
   useEffect(() => {
     api
-      .get("/targets/")
+      .get<Paginated<Target>>("/targets/", { params: { page_size: 200 } })
       .then((res) => {
-        const list: Target[] = res.data.results || res.data;
-        setTargets(list);
-        if (list.length) setTargetId(String(list[0].id));
+        const items = listOf(res.data);
+        setTargets(items);
+        if (items.length) setTargetId(String(items[0].id));
       })
-      .catch((err) => {
-        setTargets([]);
-        setError(errorMessage(err));
-      });
+      .catch((err) => setError(errorMessage(err, "Could not load targets.")))
+      .finally(() => setLoadingTargets(false));
   }, []);
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    setBusy(true);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
     setError(null);
+    const target = targets.find((t) => String(t.id) === targetId);
+    if (!target) {
+      setError("Add a target before starting a scan.");
+      return;
+    }
+    setBusy(true);
     try {
-      await api.post("/scans/", { name, target: Number(targetId), scan_type: scanType });
+      const label = SCAN_TYPES.find((t) => t.value === scanType)?.label ?? scanType;
+      await api.post("/scans/", {
+        name: name.trim() || `${target.name} · ${label}`,
+        target: target.id,
+        scan_type: scanType,
+      });
       onCreated();
     } catch (err) {
-      setError(errorMessage(err));
+      setError(errorMessage(err, "Could not start the scan."));
     } finally {
       setBusy(false);
     }
   };
 
-  const input =
-    "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm focus:border-[#800020] focus:outline-none focus:ring-1 focus:ring-[#800020]";
-  const label = "mb-1 block text-xs font-semibold uppercase tracking-wider text-slate-500";
+  const noTargets = !loadingTargets && targets.length === 0;
 
   return (
-    <form onSubmit={submit} className="mb-6 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#12264a]">New scan</h2>
-        <button type="button" onClick={onCancel} className="text-sm font-medium text-slate-500 hover:text-[#800020]">
-          Cancel
-        </button>
-      </div>
+    <form onSubmit={submit} className="space-y-4">
+      {error && <p className="rounded-lg bg-wine-100 px-3 py-2 text-sm font-medium text-wine-800">{error}</p>}
 
-      {targets && targets.length === 0 ? (
-        <p className="rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-600">
-          You don't have any targets yet.{" "}
-          <Link to="/targets" className="font-semibold">
-            Add a target
-          </Link>{" "}
-          first, then come back to start a scan.
-        </p>
+      {noTargets ? (
+        <div className="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center">
+          <Crosshair className="mx-auto h-5 w-5 text-slate-400" />
+          <p className="mt-2 text-sm text-slate-600">No targets yet.</p>
+          <Link to="/targets" className="mt-1 inline-block text-sm font-semibold text-wine-700 hover:underline">
+            Add your first target
+          </Link>
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-3">
+        <>
           <div>
-            <label className={label} htmlFor="scan-name">
+            <label className="label-xs" htmlFor="scan-name">
               Scan name
             </label>
-            <input id="scan-name" className={input} value={name} onChange={(e) => setName(e.target.value)} required />
+            <input
+              id="scan-name"
+              className="field"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Weekly perimeter sweep"
+            />
           </div>
           <div>
-            <label className={label} htmlFor="scan-target">
+            <label className="label-xs" htmlFor="scan-target">
               Target
             </label>
             <select
               id="scan-target"
-              className={input}
+              className="field"
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
-              required
+              disabled={loadingTargets}
             >
-              {(targets ?? []).map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({t.value})
+              {targets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.name} — {target.value}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className={label} htmlFor="scan-type">
-              Scan type
-            </label>
-            <select
-              id="scan-type"
-              className={input}
-              value={scanType}
-              onChange={(e) => setScanType(e.target.value as ScanType)}
-            >
-              {SCAN_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
+            <span className="label-xs">Module</span>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {SCAN_TYPES.map((type) => {
+                const selected = scanType === type.value;
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setScanType(type.value)}
+                    className={cn(
+                      "rounded-xl border px-3 py-2.5 text-left transition",
+                      selected
+                        ? "border-wine-700 bg-wine-700/[0.05] ring-1 ring-wine-700/20"
+                        : "border-slate-200 hover:border-slate-300",
+                    )}
+                  >
+                    <span className="block text-[13px] font-semibold text-navy-800">{type.label}</span>
+                    <span className="mt-0.5 block text-[11px] leading-snug text-slate-500">{type.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-[#800020]/30 bg-[#800020]/10 px-3 py-2 text-sm font-medium text-[#800020]">
-          {error}
-        </p>
-      )}
+      <p className="text-[11px] leading-relaxed text-slate-500">
+        Unless real scanning is enabled on the server, findings are produced in demo mode and labelled{" "}
+        <span className="font-semibold">[SIMULATED]</span>. Only scan systems you own or have written permission to
+        test.
+      </p>
 
-      {targets && targets.length > 0 && (
-        <div className="mt-5">
-          <button type="submit" disabled={busy || !name || !targetId} className="btn-primary disabled:opacity-50">
-            {busy ? "Starting…" : "Start scan"}
+      <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
+        {onCancel && (
+          <button type="button" className="btn-quiet" onClick={onCancel}>
+            Cancel
           </button>
-        </div>
-      )}
+        )}
+        <button type="submit" className="btn-primary" disabled={busy || targets.length === 0}>
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? "Queueing…" : "Start scan"}
+        </button>
+      </div>
     </form>
   );
 }

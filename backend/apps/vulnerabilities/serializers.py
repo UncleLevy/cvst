@@ -4,11 +4,16 @@ from .models import Vulnerability
 
 
 class VulnerabilitySerializer(serializers.ModelSerializer):
+    scan_name = serializers.CharField(source="scan.name", read_only=True)
+    target_value = serializers.CharField(source="scan.target.value", read_only=True)
+
     class Meta:
         model = Vulnerability
         fields = [
             "id",
             "scan",
+            "scan_name",
+            "target_value",
             "cve_id",
             "title",
             "description",
