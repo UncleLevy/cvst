@@ -30,8 +30,51 @@ export interface Scan {
   scan_type: ScanType;
   status: string;
   progress: number;
+  started_at: string | null;
+  finished_at: string | null;
   error_message: string;
   vulnerability_count?: number;
   target_detail: { name: string; value: string };
   created_at: string;
+}
+
+export type Severity = "critical" | "high" | "medium" | "low" | "info";
+
+export interface Finding {
+  id: number;
+  scan: number;
+  scan_name: string;
+  target_value: string;
+  cve_id: string;
+  title: string;
+  description: string;
+  severity: Severity;
+  cvss_score: number | null;
+  port: number | null;
+  service: string;
+  discovered_at: string;
+}
+
+export interface ScanStats {
+  total: number;
+  active: number;
+  completed: number;
+  failed: number;
+}
+
+export interface SeverityStats {
+  total: number;
+  by_severity: Record<Severity, number>;
+}
+
+export interface Paginated<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/** DRF returns {results: [...]} when paginated and a bare array otherwise. */
+export function listOf<T>(data: Paginated<T> | T[]): T[] {
+  return Array.isArray(data) ? data : data.results;
 }

@@ -1,95 +1,21 @@
-/* ------------------------------------------------------------------
-   CVST global styles
-   Tailwind v3 directives. On Tailwind v4, replace the three
-   @tailwind lines with:  @import "tailwindcss";
-------------------------------------------------------------------- */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Brand palette: burgundy, grey, dark blue */
-:root {
-  --burgundy: #800020;
-  --burgundy-light: #b3304f;
-  --burgundy-dark: #5c0017;
-
-  --navy: #12264a;
-  --navy-dark: #0b1730;
-  --navy-light: #1b3a6b;
-
-  --grey-50: #f8fafc;
-  --grey-100: #f1f5f9;
-  --grey-200: #e2e8f0;
-  --grey-300: #cbd5e1;
-  --grey-400: #94a3b8;
-  --grey-500: #64748b;
-  --grey-700: #334155;
-
-  --font-sans: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: ui-monospace, "Cascadia Code", Consolas, "SFMono-Regular", monospace;
-}
-
 @layer base {
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
-
   html {
-    scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
   }
 
   body {
+    @apply bg-[#eff1f6] text-slate-700 antialiased;
+    font-feature-settings: "cv11", "ss01";
     margin: 0;
-    min-height: 100vh;
-    font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.5;
-    color: var(--grey-700);
-    background-color: var(--grey-100);
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  #root {
-    min-height: 100vh;
-  }
-
-  h1,
-  h2,
-  h3,
-  h4 {
-    color: var(--navy);
-  }
-
-  a {
-    color: var(--burgundy);
-    text-decoration: none;
-  }
-
-  a:hover {
-    color: var(--burgundy-dark);
-    text-decoration: underline;
-  }
-
-  code,
-  kbd,
-  pre,
-  samp {
-    font-family: var(--font-mono);
   }
 
   ::selection {
-    background: var(--burgundy);
-    color: #fff;
-  }
-
-  :focus-visible {
-    outline: 2px solid var(--burgundy);
-    outline-offset: 2px;
+    @apply bg-wine-700 text-white;
   }
 
   button,
@@ -101,79 +27,42 @@
     cursor: not-allowed;
   }
 
-  /* Scrollbars */
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--grey-400) transparent;
-  }
-
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--grey-400);
-    border-radius: 9999px;
-    border: 2px solid var(--grey-100);
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--burgundy);
+    scrollbar-color: #94a3b8 transparent;
   }
 }
 
 @layer components {
+  .surface {
+    @apply rounded-2xl bg-white shadow-panel ring-1 ring-navy-900/[0.07];
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-navy-800 shadow-sm transition placeholder:text-slate-400 focus:border-wine-700 focus:outline-none focus:ring-2 focus:ring-wine-700/15;
+  }
+
+  .label-xs {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500;
+  }
+
   .btn-primary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    color: #fff;
-    background-color: var(--burgundy);
-    transition: background-color 0.2s, box-shadow 0.2s;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-wine-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-wine-800 focus:outline-none focus:ring-2 focus:ring-wine-700/30 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60;
   }
 
-  .btn-primary:hover {
-    background-color: var(--burgundy-dark);
-    box-shadow: 0 4px 12px rgba(128, 0, 32, 0.3);
+  .btn-quiet {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-navy-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60;
   }
 
-  .btn-secondary {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 600;
-    color: var(--navy);
-    background-color: #fff;
-    border: 1px solid var(--grey-300);
-    transition: border-color 0.2s, background-color 0.2s;
+  .table-head {
+    @apply bg-navy-800 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-300;
   }
 
-  .btn-secondary:hover {
-    border-color: var(--navy);
-    background-color: var(--grey-50);
-  }
-
-  .card {
-    background: #fff;
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-    border: 1px solid var(--grey-200);
+  .notice-error {
+    @apply rounded-xl bg-wine-100 px-4 py-3 text-sm font-medium text-wine-800;
   }
 }
 
-/* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
