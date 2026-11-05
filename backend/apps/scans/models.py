@@ -35,6 +35,8 @@ class Scan(models.Model):
     finished_at = models.DateTimeField(null=True, blank=True)
     progress = models.PositiveIntegerField(default=0)  # 0-100
     error_message = models.TextField(blank=True)
+    # The user confirmed they are authorised to test this target when launching.
+    authorization_confirmed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

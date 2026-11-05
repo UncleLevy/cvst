@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import api, { errorMessage } from "@/api/client";
+import FindingDetailDialog from "@/components/FindingDetailDialog";
 import FindingsTable from "@/components/FindingsTable";
 import PageHeader from "@/components/PageHeader";
 import { SEVERITY_ORDER } from "@/components/SeverityBadge";
@@ -16,6 +17,7 @@ export default function Findings() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Finding | null>(null);
 
   const loadCounts = useCallback(async () => {
     try {
@@ -92,7 +94,8 @@ export default function Findings() {
         </div>
       </div>
 
-      <FindingsTable findings={findings} loading={loading} showScan />
+      <FindingsTable findings={findings} loading={loading} showScan onSelect={setSelected} />
+      <FindingDetailDialog finding={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }

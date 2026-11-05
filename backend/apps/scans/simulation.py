@@ -1,6 +1,6 @@
 """Demo-mode finding pools.
 
-Used when real scanning is off (CVST_USE_NMAP=False). Findings are picked
+Used when real scanning is off (CVST_REAL_SCANS=False). Findings are picked
 deterministically per scan so a re-run of the same scan looks the same, and
 every description is prefixed with [SIMULATED] so they are never mistaken for
 real results.
@@ -70,6 +70,8 @@ def simulated_findings(scan) -> list[dict]:
             "port": port,
             "service": service,
             "description": f"[SIMULATED] {text}",
+            "evidence": "Simulated finding generated in demo mode; no packets were sent to the target.",
+            "recommendation": "Demo data. Enable real scanning (CVST_REAL_SCANS=True) to get actionable results.",
         }
         for title, severity, cvss, port, service, text in picked
     ]

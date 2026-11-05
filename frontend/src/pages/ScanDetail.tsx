@@ -2,6 +2,7 @@ import { ArrowLeft, Clock3, Loader2, RotateCw, Server, type LucideIcon } from "l
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api, { errorMessage } from "@/api/client";
+import FindingDetailDialog from "@/components/FindingDetailDialog";
 import FindingsTable from "@/components/FindingsTable";
 import { EMPTY_SEVERITY } from "@/components/SeverityBadge";
 import SeverityTiles from "@/components/SeverityTiles";
@@ -36,6 +37,7 @@ export default function ScanDetail() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
+  const [selected, setSelected] = useState<Finding | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -188,7 +190,8 @@ export default function ScanDetail() {
       </div>
 
       <div className="mt-4">
-        <FindingsTable findings={findings} loading={false} />
+        <FindingsTable findings={findings} loading={false} onSelect={setSelected} />
+        <FindingDetailDialog finding={selected} onClose={() => setSelected(null)} />
       </div>
     </div>
   );

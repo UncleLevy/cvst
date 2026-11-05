@@ -57,11 +57,24 @@ Sign in with the superuser you created.
 
 The UI follows the Base44 version of CVST: navy and wine palette, left sidebar layout, dashboard with stat cards, scan-status donut and severity mix, a Findings page with severity filters and search, a scan report page that live-polls while a scan runs, and a Targets page. Not ported: Google sign-in, MFA/OTP and password-reset email flows (they depend on the Base44 platform).
 
-## Demo mode vs. real scanning
+## Real scanning
 
-By default (`CVST_USE_NMAP=False`) scans produce **simulated findings**, labelled `[SIMULATED]`, so you can exercise the whole workflow safely. To run real Nmap service discovery, install [Nmap](https://nmap.org/download.html), put it on your `PATH`, and set `CVST_USE_NMAP=True`.
+Scans are **real by default** (`CVST_REAL_SCANS=True`):
 
-**Only scan systems you own or have explicit written permission to test.** Target values are validated (type-checked, no whitespace or leading dashes, IPv4 ranges capped at /16) before they can reach a scanner.
+| Module | What it does |
+|---|---|
+| Network discovery | Nmap `-sV --top-ports 100`: open ports, service/version detection, exposure findings (Telnet, RDP, SMB, exposed databases and so on) and a small built-in list of known-vulnerable versions with CVE IDs. Needs the `nmap` binary (`sudo apt install nmap`). |
+| Web application | Non-intrusive HTTP checks: HTTPS/redirects, TLS certificate trust and expiry, security headers, cookie flags, version disclosure, TRACE, and a few exposed files (`/.git/HEAD`, `/.env`, `phpinfo`, `server-status`). No fuzzing or payload injection. |
+| Full assessment | Both of the above. |
+
+Every finding records what was observed (**evidence**), a **recommendation** and **references**. Click any finding to see them. Severity for exposure findings is a rating, not a CVSS score, so their CVSS shows "Not scored"; only CVE-matched findings carry a CVSS value.
+
+Safeguards:
+- Launching a scan requires ticking "I own this target or have written permission to test it" (stored on the scan).
+- Loopback addresses are refused unless `CVST_ALLOW_LOOPBACK_TARGETS=True`, and link-local/cloud-metadata (169.254.x.x) addresses are always refused. Private LAN ranges are allowed. Web redirects are re-checked at every hop.
+- Target values are validated (type-checked, no whitespace or leading dashes, IPv4 ranges capped at /16).
+
+Set `CVST_REAL_SCANS=False` for demo mode: clearly labelled `[SIMULATED]` findings, nothing sent to the target. **Only scan systems you own or have explicit written permission to test.**
 
 ## API
 
@@ -74,7 +87,7 @@ By default (`CVST_USE_NMAP=False`) scans produce **simulated findings**, labelle
 | CRUD | `/api/targets/` | delete is a soft delete |
 | GET | `/api/auth/config/` | public; `{registration_enabled}` so the UI can show or hide "Create one" |
 | CRUD | `/api/targets/` | delete is a soft delete |
-| CRUD | `/api/scans/` | `POST …/{id}/restart/`, `GET …/{id}/summary/` |
+| CRUD | `/api/scans/` | `POST` needs `authorization_confirmed: true`; `POST …/{id}/restart/`, `GET …/{id}/summary/` |
 | GET | `/api/scans/stats/` | `{total, active, completed, failed}` for the dashboard |
 | GET | `/api/vulnerabilities/` | filter by `scan`, `severity`, `service`; `?search=` over title, CVE, description, service |
 | GET | `/api/vulnerabilities/stats/` | `{total, by_severity}`; optional `?scan=<id>` |

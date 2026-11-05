@@ -165,10 +165,13 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
 # --- CVST feature flags ---------------------------------------------------
+# True : scans run real checks (Nmap for network, HTTP checks for web).
 # False: scans produce clearly-labelled simulated findings (safe demo mode).
-# True : network/full scans run a real Nmap discovery. Only scan systems you
-#        own or are explicitly authorised to test.
-CVST_USE_NMAP = env_bool("CVST_USE_NMAP", False)
+# Only scan systems you own or are explicitly authorised to test.
+CVST_REAL_SCANS = env_bool("CVST_REAL_SCANS", True)
+# Loopback targets (127.0.0.1, localhost) are refused by default so a scan cannot
+# be used to reach services on the CVST server itself. Enable to test your own box.
+CVST_ALLOW_LOOPBACK_TARGETS = env_bool("CVST_ALLOW_LOOPBACK_TARGETS", False)
 # Public self-registration is off by default; create users with
 # `manage.py createsuperuser` or the admin site.
 CVST_ALLOW_REGISTRATION = env_bool("CVST_ALLOW_REGISTRATION", False)
