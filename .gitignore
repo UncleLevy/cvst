@@ -26,3 +26,6 @@ frontend/*.tsbuildinfo
 .idea/
 .DS_Store
 Thumbs.db
+
+# Runtime logs written by scripts/start-cvst.*
+logs/

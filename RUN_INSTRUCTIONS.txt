@@ -1,0 +1,276 @@
+=====================================================================
+ CVST - HOW TO RUN (Windows and Linux)
+=====================================================================
+CVST = Django backend (port 8000) + React frontend (port 5173).
+Open the app at:  http://localhost:5173
+
+Only scan systems you own or have written permission to test.
+
+
+---------------------------------------------------------------------
+ 1. PREREQUISITES
+---------------------------------------------------------------------
+Needed on both systems:
+  - Python 3.11 or newer
+  - Node.js 18 or newer (includes npm)
+  - Git
+  - Nmap  (only for real NETWORK scans; web scans do not need it)
+
+LINUX (Debian / Ubuntu / Pop!_OS):
+  sudo apt update
+  sudo apt install -y python3 python3-venv python3-pip nodejs npm git nmap
+  (If your apt Node is older than 18, install Node from nodejs.org or nvm.)
+
+WINDOWS:
+  - Python:  https://www.python.org/downloads/
+             Tick "Add python.exe to PATH" in the installer.
+  - Node.js: https://nodejs.org/  (LTS)
+  - Git:     https://git-scm.com/download/win
+  - Nmap:    https://nmap.org/download.html  (installer adds it to PATH)
+  Open a NEW Command Prompt afterwards and check:
+      python --version
+      node --version
+      nmap --version
+
+
+---------------------------------------------------------------------
+ 2. GET THE CODE
+---------------------------------------------------------------------
+  git clone https://github.com/UncleLevy/cvst.git
+  cd cvst
+  git checkout feature/real-scans      (until it is merged into main)
+
+Windows folders below use backslashes (backend\venv), Linux uses
+slashes (backend/venv). Everything else is the same.
+
+
+---------------------------------------------------------------------
+ 3. QUICK START (one command)
+---------------------------------------------------------------------
+The helper scripts create the virtualenv, install dependencies,
+create backend/.env, run migrations and start both servers.
+
+LINUX:
+  chmod +x scripts/*.sh          (first time only)
+  ./scripts/start-cvst.sh
+  ./scripts/stop-cvst.sh         (to stop)
+
+WINDOWS (double-click, or from Command Prompt):
+  scripts\start-cvst.bat
+  scripts\stop-cvst.bat          (to stop)
+
+Logs are written to the "logs" folder in the project root.
+
+FIRST TIME ONLY - create your login (open a second terminal):
+
+  LINUX:
+    cd backend
+    source venv/bin/activate
+    python manage.py createsuperuser
+
+  WINDOWS:
+    cd backend
+    venv\Scripts\activate
+    python manage.py createsuperuser
+
+Then sign in at http://localhost:5173 with that username and password.
+(Self-registration is off by default. See CVST_ALLOW_REGISTRATION below.)
+
+
+---------------------------------------------------------------------
+ 4. MANUAL START (what the scripts do)
+---------------------------------------------------------------------
+Terminal 1 - backend
+
+  LINUX:
+    cd backend
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    cp .env.example .env
+    python manage.py migrate
+    python manage.py runserver
+
+  WINDOWS:
+    cd backend
+    python -m venv venv
+    venv\Scripts\activate
+    pip install -r requirements.txt
+    copy .env.example .env
+    python manage.py migrate
+    python manage.py runserver
+
+Terminal 2 - frontend (same on both systems)
+    cd frontend
+    npm install
+    npm run dev
+
+Always activate the venv ("(venv)" shows in the prompt) before running
+any backend command. Do NOT use a system-wide "celery" from apt; use the
+one inside the venv.
+
+
+---------------------------------------------------------------------
+ 5. SETTINGS (backend/.env)
+---------------------------------------------------------------------
+Edit backend/.env, then restart the backend. Never commit this file or
+share keys from it.
+
+  DEBUG=True                       True for local use
+  SECRET_KEY=                      required when DEBUG=False. Generate:
+        python -c "from django.core.management.utils import get_random_secret_key as g; print(g())"
+  CVST_REAL_SCANS=True             True = real scans, False = demo findings
+  CVST_ALLOW_LOOPBACK_TARGETS=False   set True to scan localhost/127.0.0.1
+  CVST_SCAN_RUNNER=thread          thread = no Redis needed (default)
+                                   celery = queued to a worker (section 6)
+  CVST_NVD_LOOKUP=True             CVE enrichment from the NVD
+  NVD_API_KEY=                     free key (higher rate limit):
+        https://nvd.nist.gov/developers/request-an-api-key
+  CVST_ALLOW_REGISTRATION=False    True lets people sign up themselves
+
+
+---------------------------------------------------------------------
+ 6. OPTIONAL: CELERY + REDIS (production-style queue)
+---------------------------------------------------------------------
+Skip this unless you need a separate worker. In backend/.env set:
+    CVST_SCAN_RUNNER=celery
+    CELERY_BROKER_URL=redis://localhost:6379/0
+
+LINUX:
+  sudo apt install -y redis-server
+  sudo systemctl start redis-server
+  redis-cli ping                          (must answer PONG)
+  cd backend && source venv/bin/activate
+  celery -A config worker -l info
+  (or: ./scripts/start-cvst.sh celery)
+
+WINDOWS:
+  Redis does not run natively on Windows. Use ONE of:
+    - WSL2 (Ubuntu) with:  sudo apt install redis-server ; redis-server
+    - Docker Desktop:      docker run -d -p 6379:6379 redis:7
+    - Memurai (Windows Redis-compatible server)
+  Then:
+    cd backend
+    venv\Scripts\activate
+    celery -A config worker -l info --pool=solo
+  (or: scripts\start-cvst.bat celery)
+
+Symptom of a missing worker: scans sit on "Queued" forever. Fix: use
+CVST_SCAN_RUNNER=thread, or start Redis and the worker.
+
+
+---------------------------------------------------------------------
+ 7. AUTO-START WITH THE SCHEDULER
+---------------------------------------------------------------------
+Run the app once manually first (section 3) so the virtualenv,
+dependencies and .env already exist.
+
+----- WINDOWS: Task Scheduler ---------------------------------------
+Option A - command line (run Command Prompt as your normal user):
+
+  schtasks /Create /TN "CVST" /SC ONLOGON /RL LIMITED ^
+    /TR "\"C:\path\to\cvst\scripts\start-cvst.bat\""
+
+  Replace C:\path\to\cvst with your real folder.
+  Run now:     schtasks /Run /TN "CVST"
+  Remove:      schtasks /Delete /TN "CVST" /F
+
+Option B - Task Scheduler window:
+  1. Start menu > Task Scheduler > Create Task...
+  2. General: name "CVST". Tick "Run only when user is logged on".
+  3. Triggers > New > "At log on" (or "On a schedule" for set times).
+  4. Actions > New > Start a program:
+       Program/script: C:\path\to\cvst\scripts\start-cvst.bat
+       Start in:       C:\path\to\cvst\scripts
+  5. OK. Right-click the task > Run to test.
+
+  Use "At log on" rather than "At startup": startup tasks run without
+  your user PATH, so Python and Node may not be found.
+  To stop the app: scripts\stop-cvst.bat
+
+----- LINUX: cron (starts at boot) ----------------------------------
+  crontab -e
+  Add (use your real path):
+    @reboot sleep 20 && /home/YOU/cvst/scripts/start-cvst.sh >> /home/YOU/cvst/logs/cron.log 2>&1
+
+  Cron has a minimal PATH. If node was installed with nvm, use the
+  systemd option below, or add a line above the entry:
+    PATH=/usr/local/bin:/usr/bin:/bin:/home/YOU/.nvm/versions/node/vXX/bin
+
+----- LINUX: systemd user service (recommended) ---------------------
+  mkdir -p ~/.config/systemd/user
+  nano ~/.config/systemd/user/cvst.service
+
+  Paste (use your real path):
+    [Unit]
+    Description=CVST vulnerability scanner
+    After=network-online.target
+
+    [Service]
+    Type=oneshot
+    RemainAfterExit=yes
+    ExecStart=/home/YOU/cvst/scripts/start-cvst.sh
+    ExecStop=/home/YOU/cvst/scripts/stop-cvst.sh
+
+    [Install]
+    WantedBy=default.target
+
+  Then:
+    systemctl --user daemon-reload
+    systemctl --user enable --now cvst.service
+    sudo loginctl enable-linger $USER     (start at boot, before login)
+    systemctl --user status cvst.service
+
+----- Scheduling the scans themselves -------------------------------
+CVST has no built-in recurring scans yet. To run a scan on a schedule,
+start the app at the times you want and launch scans from the dashboard.
+
+
+---------------------------------------------------------------------
+ 8. REPORTS, FINDINGS AND NVD
+---------------------------------------------------------------------
+  - Click any finding to see evidence, fix and references.
+  - Completed scan page > "PDF report" downloads a ranked report.
+  - Findings page > "NVD lookup" looks up any CVE ID.
+  - Findings are ranked P1 (fix immediately) to P4 (monitor).
+
+
+---------------------------------------------------------------------
+ 9. UPDATING
+---------------------------------------------------------------------
+  git pull
+  (Linux)   cd backend && source venv/bin/activate && pip install -r requirements.txt && python manage.py migrate
+  (Windows) cd backend && venv\Scripts\activate && pip install -r requirements.txt && python manage.py migrate
+  cd ../frontend && npm install
+
+The start scripts re-install Python packages automatically when
+requirements.txt changes; delete backend/venv/.deps-installed to force it.
+
+
+---------------------------------------------------------------------
+ 10. TROUBLESHOOTING
+---------------------------------------------------------------------
+ "Couldn't import Django"              Activate the venv first.
+ "SECRET_KEY must be set..."           Set DEBUG=True or add a SECRET_KEY in
+                                       backend/.env.
+ npm ERESOLVE / wrong Vite version     You are not on the right branch. Run
+                                       git status, then in frontend:
+                                       delete node_modules and
+                                       package-lock.json, run npm install.
+ Scan stuck on "Queued"                See section 6.
+ Scan fails: "Nmap is not installed"   Install Nmap and make sure "nmap
+                                       --version" works in the same terminal.
+ Scan fails: "loopback ... disabled"   Set CVST_ALLOW_LOOPBACK_TARGETS=True to
+                                       scan your own machine.
+ "NVD rate limit reached"              Add an NVD_API_KEY.
+ Login fails / 401 in the browser      Make sure the backend is running on
+                                       port 8000 and you created a user.
+ Port already in use                   Run the stop script, or end the old
+                                       python/node process.
+ Linux: "Permission denied" on .sh     chmod +x scripts/*.sh
+ Windows: script window closes at once Run scripts\start-cvst.bat from a
+                                       Command Prompt to read the message.
+ git push asks for a password          GitHub no longer accepts passwords.
+                                       Use "gh auth login" or a personal
+                                       access token.
+=====================================================================
