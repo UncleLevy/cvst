@@ -1,5 +1,8 @@
 import logging
+import threading
 
+from django import db
+from django.conf import settings
 from django.db.models import Count
 from django.utils import timezone
 from rest_framework import permissions, status, viewsets
@@ -17,8 +20,21 @@ logger = logging.getLogger(__name__)
 SEVERITIES = ("critical", "high", "medium", "low", "info")
 
 
+def _run_in_thread(scan_id: int) -> None:
+    """Run the scan task in a background thread (no Redis/Celery worker needed)."""
+    try:
+        run_scan_task.apply(args=[scan_id])
+    except Exception:  # noqa: BLE001 - run_scan_task already recorded the failure on the scan
+        logger.exception("Scan %s failed", scan_id)
+    finally:
+        db.close_old_connections()
+
+
 def enqueue_scan(scan: Scan) -> None:
-    """Queue the scan; if the broker is unreachable, fail the scan visibly."""
+    """Start the scan: in a local thread (default) or via Celery; fail visibly if queuing breaks."""
+    if settings.CVST_SCAN_RUNNER == "thread":
+        threading.Thread(target=_run_in_thread, args=(scan.id,), daemon=True, name=f"scan-{scan.id}").start()
+        return
     try:
         run_scan_task.delay(scan.id)
     except Exception as exc:  # noqa: BLE001 - e.g. Redis is not running
