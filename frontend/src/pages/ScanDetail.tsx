@@ -1,12 +1,14 @@
-import { ArrowLeft, Clock3, Loader2, RotateCw, Server, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Clock3, FileDown, Loader2, RotateCw, Server, type LucideIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import api, { errorMessage } from "@/api/client";
 import FindingDetailDialog from "@/components/FindingDetailDialog";
 import FindingsTable from "@/components/FindingsTable";
 import { EMPTY_SEVERITY } from "@/components/SeverityBadge";
+import PriorityBadge, { PRIORITY_LABEL } from "@/components/PriorityBadge";
 import SeverityTiles from "@/components/SeverityTiles";
 import StatusPill from "@/components/StatusPill";
+import { downloadScanReport } from "@/lib/report";
 import { isNotFound, restartScan } from "@/lib/scanActions";
 import { listOf, type Finding, type Paginated, type Scan, type Severity } from "@/types";
 
@@ -37,6 +39,7 @@ export default function ScanDetail() {
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [selected, setSelected] = useState<Finding | null>(null);
 
   const load = useCallback(async () => {
@@ -70,6 +73,18 @@ export default function ScanDetail() {
     const timer = setInterval(load, 2500);
     return () => clearInterval(timer);
   }, [active, load]);
+
+  const download = async () => {
+    if (!scan) return;
+    setDownloading(true);
+    try {
+      await downloadScanReport(scan.id);
+    } catch (err) {
+      setError(errorMessage(err, "Could not generate the report."));
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const rerun = async () => {
     if (!scan) return;
@@ -137,6 +152,12 @@ export default function ScanDetail() {
           </div>
           <div className="flex items-center gap-2">
             <StatusPill status={scan.status} />
+            {scan.status === "completed" && (
+              <button className="btn-primary" onClick={download} disabled={downloading}>
+                {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
+                PDF report
+              </button>
+            )}
             {(scan.status === "completed" || scan.status === "failed") && (
               <button className="btn-quiet" onClick={rerun} disabled={rerunning}>
                 {rerunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
@@ -187,11 +208,33 @@ export default function ScanDetail() {
           </span>
         </div>
         <SeverityTiles counts={counts} />
+        {findings.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+            <span className="font-semibold uppercase tracking-[0.12em] text-slate-400">Remediation priority</span>
+            {(["P1", "P2", "P3", "P4"] as const).map((p) => (
+              <span key={p} className="inline-flex items-center gap-1.5">
+                <PriorityBadge priority={p} />
+                <span className="font-mono font-semibold text-navy-800">
+                  {findings.filter((f) => f.priority === p).length}
+                </span>
+                {PRIORITY_LABEL[p]}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-4">
         <FindingsTable findings={findings} loading={false} onSelect={setSelected} />
-        <FindingDetailDialog finding={selected} onClose={() => setSelected(null)} />
+        <FindingDetailDialog
+          finding={selected}
+          onClose={() => setSelected(null)}
+          onUpdate={(updated) => {
+            setSelected(updated);
+            setFindings((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+            load();
+          }}
+        />
       </div>
     </div>
   );

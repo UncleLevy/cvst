@@ -90,6 +90,10 @@ Set `CVST_REAL_SCANS=False` for demo mode: clearly labelled `[SIMULATED]` findin
 | CRUD | `/api/scans/` | `POST` needs `authorization_confirmed: true`; `POST …/{id}/restart/`, `GET …/{id}/summary/` |
 | GET | `/api/scans/stats/` | `{total, active, completed, failed}` for the dashboard |
 | GET | `/api/vulnerabilities/` | filter by `scan`, `severity`, `service`; `?search=` over title, CVE, description, service |
+| GET | `/api/vulnerabilities/cve/<CVE-ID>/` | NVD lookup: description, CVSS score/vector, references |
+| POST | `/api/vulnerabilities/<id>/enrich/` | refresh a finding's CVSS and references from the NVD |
+| GET | `/api/reports/scans/<id>/` | prioritised report data (completed scans) |
+| GET | `/api/reports/scans/<id>/pdf/` | downloadable PDF report |
 | GET | `/api/vulnerabilities/stats/` | `{total, by_severity}`; optional `?scan=<id>` |
 
 List endpoints accept `?page_size=` (default 20, max 200).
@@ -103,8 +107,16 @@ cd backend && python manage.py test
 cd frontend && npm run build        # type-checks, then builds
 ```
 
+## Reports, scoring and NVD
+
+- **Risk prioritisation.** Every finding gets a 0-100 risk score: the CVSS base score x10 (or a nominal estimate by severity for exposure findings that have no CVSS), +10 for a known CVE, +5 for services that give direct control or data when exposed. Scores map to **P1** fix immediately (85+), **P2** fix urgently (65+), **P3** plan a fix (35+), **P4** monitor. Findings lists are sorted by risk.
+- **CVSS scoring.** A built-in CVSS v3.0/v3.1 calculator turns a vector string into a base score and severity (checked against published scores).
+- **NVD / CVE lookup.** Uses the NVD CVE API 2.0 (cached 24h; optional `NVD_API_KEY` for a higher rate limit). Scans refresh CVSS data for CVE findings and match detected product versions to CVEs through their CPE; those matches are labelled as needing verification, since vendors backport fixes. NVD being unreachable never fails a scan. In the UI use **NVD lookup** on the Findings page, or **Refresh from NVD** inside a finding.
+- **PDF reports.** On a completed scan, **PDF report** downloads an executive summary, a ranked remediation table and per-finding detail (evidence, fix, references). `GET /api/reports/scans/<id>/` returns the same prioritised data as JSON.
+- **Web application scan module.** See "Real scanning" above.
+
 ## Roadmap
 
-- Report generation (PDF) and risk prioritisation (`reports` app)
-- NVD / CVE lookup and CVSS-based scoring
-- Web application scan module
+- Scheduled and recurring scans
+- Authenticated web scanning and active injection tests (opt-in)
+- Report branding and per-target history comparison

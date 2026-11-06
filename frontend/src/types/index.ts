@@ -38,6 +38,20 @@ export interface Scan {
   created_at: string;
 }
 
+export type Priority = "P1" | "P2" | "P3" | "P4";
+
+export interface CveInfo {
+  cve_id: string;
+  description: string;
+  cvss_score: number | null;
+  cvss_vector: string;
+  cvss_version: string;
+  severity: Severity;
+  references: string[];
+  published: string;
+  last_modified: string;
+}
+
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 
 export interface Finding {
@@ -50,6 +64,10 @@ export interface Finding {
   description: string;
   severity: Severity;
   cvss_score: number | null;
+  cvss_vector: string;
+  risk_score: number;
+  priority: Priority;
+  priority_label: string;
   port: number | null;
   service: string;
   source: string;
