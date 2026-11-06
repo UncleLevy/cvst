@@ -1,3 +1,4 @@
+import logging
 import time
 
 from celery import shared_task
@@ -5,6 +6,7 @@ from django.conf import settings
 from django.utils import timezone
 
 from apps.targets.validators import target_host
+from apps.vulnerabilities import nvd, scoring
 from apps.vulnerabilities.models import Vulnerability
 
 from .models import Scan
@@ -18,15 +20,59 @@ def _update(scan: Scan, **fields) -> None:
 
 
 SAVE_FIELDS = (
-    "cve_id", "title", "description", "severity", "cvss_score", "port",
-    "service", "evidence", "recommendation", "references",
+    "cve_id", "title", "description", "severity", "cvss_score", "cvss_vector", "risk_score",
+    "port", "service", "evidence", "recommendation", "references",
 )
+MAX_CPE_LOOKUPS = 5  # keeps scans fast and inside the NVD's anonymous rate limit
+logger = logging.getLogger(__name__)
+
+
+def _enrich_with_nvd(findings: list[dict]) -> list[dict]:
+    """Best-effort NVD enrichment: authoritative CVSS for known CVEs, plus CVEs matched by CPE."""
+    if not settings.CVST_NVD_LOOKUP:
+        return findings
+
+    seen = {f["cve_id"] for f in findings if f.get("cve_id")}
+    extra: list[dict] = []
+    lookups = 0
+    try:
+        for f in findings:
+            if f.get("cve_id"):
+                try:
+                    nvd.enrich_finding(f)
+                except nvd.CveNotFound:
+                    pass
+            elif f.get("cpe") and lookups < MAX_CPE_LOOKUPS:
+                lookups += 1
+                for info in nvd.lookup_cpe(f["cpe"]):
+                    if info["cve_id"] in seen:
+                        continue
+                    seen.add(info["cve_id"])
+                    banner = f.get("banner") or f.get("service", "")
+                    extra.append(nvd.apply_cve({
+                        "cve_id": info["cve_id"],
+                        "title": f"{info['cve_id']}: possible vulnerability in {banner}",
+                        "description": (
+                            f"{info['description']}\n\nMatched by product/version (CPE {f['cpe']}). "
+                            "Vendors often backport fixes without changing the version string, so verify "
+                            "the installed package's patch level before treating this as confirmed."
+                        ),
+                        "port": f.get("port"),
+                        "service": f.get("service", ""),
+                        "evidence": f"{f.get('evidence', '')}\nCPE: {f['cpe']}".strip(),
+                        "recommendation": f"Check the vendor advisory and apply the latest security update for {banner}.",
+                        "references": [],
+                    }, info))
+    except nvd.NvdError as exc:
+        logger.warning("NVD lookup skipped: %s", exc)  # offline / rate limited: keep local results
+    return findings + extra
 
 
 def _save_findings(scan: Scan, findings: list[dict], source: str) -> None:
+    prepared = [scoring.finalise(dict(f)) for f in findings]
     Vulnerability.objects.bulk_create(
         Vulnerability(scan=scan, source=source, **{k: f[k] for k in SAVE_FIELDS if k in f})
-        for f in findings
+        for f in prepared
     )
 
 
@@ -37,7 +83,8 @@ def _run_real_scan(scan: Scan) -> None:
     from apps.detection.web_scanner import run_web_scan
 
     if scan.scan_type in {"network", "full"}:
-        _save_findings(scan, run_nmap_discovery(target_host(scan.target)), "nmap")
+        nmap_findings = _enrich_with_nvd(run_nmap_discovery(target_host(scan.target)))
+        _save_findings(scan, nmap_findings, "nmap")
     _update(scan, status="analysing", progress=50)
 
     if scan.scan_type in {"web", "full"}:

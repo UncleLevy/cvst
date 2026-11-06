@@ -14,5 +14,6 @@ router.register(r"vulnerabilities", VulnerabilityViewSet, basename="vulnerabilit
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("apps.accounts.urls")),
+    path("api/reports/", include("apps.reports.urls")),
     path("api/", include(router.urls)),
 ]

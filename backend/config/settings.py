@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.scans",
     "apps.vulnerabilities",
     "apps.detection",
+    "apps.reports",
 ]
 
 MIDDLEWARE = [
@@ -172,6 +173,10 @@ CVST_REAL_SCANS = env_bool("CVST_REAL_SCANS", True)
 # Loopback targets (127.0.0.1, localhost) are refused by default so a scan cannot
 # be used to reach services on the CVST server itself. Enable to test your own box.
 CVST_ALLOW_LOOPBACK_TARGETS = env_bool("CVST_ALLOW_LOOPBACK_TARGETS", False)
+# NVD lookups enrich CVE findings and match detected product versions to CVEs.
+# NVD_API_KEY is optional but raises the rate limit (nvd.nist.gov/developers/request-an-api-key).
+CVST_NVD_LOOKUP = env_bool("CVST_NVD_LOOKUP", True)
+NVD_API_KEY = os.environ.get("NVD_API_KEY", "")
 # Public self-registration is off by default; create users with
 # `manage.py createsuperuser` or the admin site.
 CVST_ALLOW_REGISTRATION = env_bool("CVST_ALLOW_REGISTRATION", False)

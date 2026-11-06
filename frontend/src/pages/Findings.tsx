@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import api, { errorMessage } from "@/api/client";
+import CveLookup from "@/components/CveLookup";
 import FindingDetailDialog from "@/components/FindingDetailDialog";
 import FindingsTable from "@/components/FindingsTable";
 import PageHeader from "@/components/PageHeader";
@@ -58,7 +59,12 @@ export default function Findings() {
 
   return (
     <div>
-      <PageHeader eyebrow="Triage" title="Findings" subtitle="Everything your scans have surfaced, ranked by severity." />
+      <PageHeader
+        eyebrow="Triage"
+        title="Findings"
+        subtitle="Everything your scans have surfaced, ranked by risk. P1 findings come first."
+      />
+      <CveLookup />
 
       {error && <p className="notice-error mb-4">{error}</p>}
 
@@ -95,7 +101,15 @@ export default function Findings() {
       </div>
 
       <FindingsTable findings={findings} loading={loading} showScan onSelect={setSelected} />
-      <FindingDetailDialog finding={selected} onClose={() => setSelected(null)} />
+      <FindingDetailDialog
+        finding={selected}
+        onClose={() => setSelected(null)}
+        onUpdate={(updated) => {
+          setSelected(updated);
+          setFindings((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+          loadCounts();
+        }}
+      />
     </div>
   );
 }

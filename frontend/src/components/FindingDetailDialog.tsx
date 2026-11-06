@@ -1,5 +1,8 @@
-import { ExternalLink, Wrench } from "lucide-react";
+import { ExternalLink, Loader2, RefreshCw, Wrench } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import api, { errorMessage } from "@/api/client";
+import PriorityBadge, { PRIORITY_LABEL } from "@/components/PriorityBadge";
 import SeverityBadge from "@/components/SeverityBadge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { Finding } from "@/types";
@@ -34,9 +37,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 interface Props {
   finding: Finding | null;
   onClose: () => void;
+  /** Called with the refreshed finding after an NVD lookup. */
+  onUpdate?: (finding: Finding) => void;
 }
 
-export default function FindingDetailDialog({ finding, onClose }: Props) {
+export default function FindingDetailDialog({ finding, onClose, onUpdate }: Props) {
+  const [refreshing, setRefreshing] = useState(false);
+  const [nvdError, setNvdError] = useState<string | null>(null);
+
+  const refreshFromNvd = async () => {
+    if (!finding) return;
+    setRefreshing(true);
+    setNvdError(null);
+    try {
+      const res = await api.post<Finding>(`/vulnerabilities/${finding.id}/enrich/`);
+      onUpdate?.(res.data);
+    } catch (err) {
+      setNvdError(errorMessage(err, "NVD lookup failed."));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const references = (finding?.references ?? []).map(safeUrl).filter((u): u is string => u !== null);
   const cve = finding && CVE_RE.test(finding.cve_id) ? finding.cve_id.toUpperCase() : null;
 
@@ -47,7 +69,9 @@ export default function FindingDetailDialog({ finding, onClose }: Props) {
           <>
             <DialogHeader>
               <div className="flex flex-wrap items-center gap-2">
+                <PriorityBadge priority={finding.priority} />
                 <SeverityBadge severity={finding.severity} />
+                <span className="text-[11px] font-medium text-slate-500">{PRIORITY_LABEL[finding.priority]}</span>
                 {cve && (
                   <a
                     href={`https://nvd.nist.gov/vuln/detail/${cve}`}
@@ -66,7 +90,11 @@ export default function FindingDetailDialog({ finding, onClose }: Props) {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
+              <Field label="Risk score">
+                <span className="font-mono">{finding.risk_score.toFixed(0)}</span>
+                <span className="text-slate-400"> / 100</span>
+              </Field>
               <Field label="CVSS">
                 {typeof finding.cvss_score === "number" ? (
                   <span className="font-mono">{finding.cvss_score.toFixed(1)}</span>
@@ -89,6 +117,20 @@ export default function FindingDetailDialog({ finding, onClose }: Props) {
                 })}
               </Field>
             </div>
+
+            {finding.cvss_vector && (
+              <p className="mt-2 break-all font-mono text-[11px] text-slate-400">{finding.cvss_vector}</p>
+            )}
+
+            {cve && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button className="btn-quiet" onClick={refreshFromNvd} disabled={refreshing}>
+                  {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  Refresh from NVD
+                </button>
+                {nvdError && <span className="text-xs font-medium text-wine-700">{nvdError}</span>}
+              </div>
+            )}
 
             <section className="mt-5">
               <h3 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Description</h3>

@@ -148,6 +148,9 @@ def findings_from_scan(nm) -> list[dict]:
                     "recommendation": "Confirm this service is intended to be reachable and close the port if it is not.",
                     "references": [NMAP_REF],
                     "cve_id": "",
+                    # Not stored; used by the task to look up CVEs for this exact version.
+                    "cpe": info.get("cpe", "") if version else "",
+                    "banner": f"{product} {version}".strip(),
                 })
 
                 risky = RISKY_SERVICES.get(name)

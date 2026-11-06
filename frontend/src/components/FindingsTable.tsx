@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import PriorityBadge from "@/components/PriorityBadge";
 import SeverityBadge from "@/components/SeverityBadge";
 import type { Finding } from "@/types";
 
@@ -10,13 +11,14 @@ interface FindingsTableProps {
 }
 
 export default function FindingsTable({ findings, loading, showScan = false, onSelect }: FindingsTableProps) {
-  const cols = showScan ? 6 : 5;
+  const cols = showScan ? 7 : 6;
   return (
     <div className="surface overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left">
           <thead className="table-head">
             <tr>
+              <th className="px-5 py-3">Priority</th>
               <th className="px-5 py-3">Severity</th>
               <th className="px-5 py-3">Finding</th>
               <th className="px-5 py-3">Service</th>
@@ -47,6 +49,9 @@ export default function FindingsTable({ findings, loading, showScan = false, onS
                   className={`align-top transition-colors hover:bg-wine-700/[0.03] ${onSelect ? "cursor-pointer" : ""}`}
                   onClick={onSelect ? () => onSelect(finding) : undefined}
                 >
+                  <td className="px-5 py-3.5">
+                    <PriorityBadge priority={finding.priority} />
+                  </td>
                   <td className="px-5 py-3.5">
                     <SeverityBadge severity={finding.severity} />
                   </td>

@@ -18,6 +18,8 @@ class Vulnerability(models.Model):
     description = models.TextField(blank=True)
     severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default="info")
     cvss_score = models.FloatField(null=True, blank=True)
+    cvss_vector = models.CharField(max_length=120, blank=True)
+    risk_score = models.FloatField(default=0.0, db_index=True)  # 0-100, see scoring.py
     port = models.PositiveIntegerField(null=True, blank=True)
     service = models.CharField(max_length=100, blank=True)
     source = models.CharField(max_length=20, blank=True)  # nmap | web | simulated
@@ -27,8 +29,14 @@ class Vulnerability(models.Model):
     discovered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-cvss_score", "-discovered_at"]
+        ordering = ["-risk_score", "-cvss_score", "-discovered_at"]
         verbose_name_plural = "vulnerabilities"
+
+    @property
+    def priority(self) -> str:
+        from .scoring import priority_for
+
+        return priority_for(self.risk_score)
 
     def __str__(self):
         return f"{self.cve_id or self.title} ({self.severity})"
