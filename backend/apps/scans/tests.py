@@ -51,7 +51,7 @@ class ApiSmokeTests(APITestCase):
         self.assertEqual(res.status_code, 400)
         self.assertIn("value", res.data)
 
-    @override_settings(CVST_REAL_SCANS=False)
+    @override_settings(CVST_REAL_SCANS=False, CVST_SCAN_RUNNER="celery")
     def test_target_and_scan_flow(self):
         self.login()
         res = self.client.post(
@@ -292,3 +292,17 @@ class WebScannerTests(SimpleTestCase):
         with override_settings(CVST_ALLOW_LOOPBACK_TARGETS=False):
             with self.assertRaises(TargetNotAllowed):
                 run_web_scan(SimpleNamespace(target_type="url", value="http://127.0.0.1:9/"))
+
+
+class ThreadRunnerTests(APITestCase):
+    def test_thread_runner_starts_scan_without_celery(self):
+        from apps.scans.views import enqueue_scan
+
+        user = User.objects.create_user("carol", password="S3cure-pass-123", role="analyst")
+        target = Target.objects.create(name="t", target_type="ip", value="10.0.0.7", created_by=user)
+        scan = Scan.objects.create(name="s", target=target, created_by=user)
+        with override_settings(CVST_SCAN_RUNNER="thread"), patch("apps.scans.views.threading.Thread") as thread:
+            enqueue_scan(scan)
+        thread.assert_called_once()
+        self.assertTrue(thread.call_args.kwargs["daemon"])
+        thread.return_value.start.assert_called_once()

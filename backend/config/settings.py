@@ -166,6 +166,10 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_ALWAYS_EAGER = env_bool("CELERY_TASK_ALWAYS_EAGER", False)
 
 # --- CVST feature flags ---------------------------------------------------
+# How scans are started: "thread" runs them inside the Django process (no Redis or
+# worker needed; fine for a single server). "celery" queues them for a worker
+# (needs Redis + `celery -A config worker`; use this in production).
+CVST_SCAN_RUNNER = os.environ.get("CVST_SCAN_RUNNER", "thread").strip().lower()
 # True : scans run real checks (Nmap for network, HTTP checks for web).
 # False: scans produce clearly-labelled simulated findings (safe demo mode).
 # Only scan systems you own or are explicitly authorised to test.
