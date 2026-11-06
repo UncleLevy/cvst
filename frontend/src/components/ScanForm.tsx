@@ -7,7 +7,7 @@ import { listOf, type Paginated, type ScanType, type Target } from "@/types";
 
 const SCAN_TYPES: { value: ScanType; label: string; hint: string }[] = [
   { value: "network", label: "Network discovery", hint: "Open ports, exposed services" },
-  { value: "web", label: "Web application", hint: "Headers, TLS, injection checks" },
+  { value: "web", label: "Web application", hint: "Headers, TLS, cookies, exposed files" },
   { value: "full", label: "Full assessment", hint: "Both modules in one pass" },
 ];
 
@@ -22,6 +22,7 @@ export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
   const [name, setName] = useState("");
   const [targetId, setTargetId] = useState("");
   const [scanType, setScanType] = useState<ScanType>("network");
+  const [authorized, setAuthorized] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +46,10 @@ export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
       setError("Add a target before starting a scan.");
       return;
     }
+    if (!authorized) {
+      setError("Confirm you are authorised to scan this target.");
+      return;
+    }
     setBusy(true);
     try {
       const label = SCAN_TYPES.find((t) => t.value === scanType)?.label ?? scanType;
@@ -52,6 +57,7 @@ export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
         name: name.trim() || `${target.name} · ${label}`,
         target: target.id,
         scan_type: scanType,
+        authorization_confirmed: authorized,
       });
       onCreated();
     } catch (err) {
@@ -134,11 +140,18 @@ export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
         </>
       )}
 
-      <p className="text-[11px] leading-relaxed text-slate-500">
-        Unless real scanning is enabled on the server, findings are produced in demo mode and labelled{" "}
-        <span className="font-semibold">[SIMULATED]</span>. Only scan systems you own or have written permission to
-        test.
-      </p>
+      <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-slate-50 p-3 text-[12px] leading-relaxed text-slate-600">
+        <input
+          type="checkbox"
+          checked={authorized}
+          onChange={(e) => setAuthorized(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 accent-wine-700"
+        />
+        <span>
+          I own this target or have written permission to test it. Real scans send network traffic to it. If the
+          server is in demo mode, findings are labelled <span className="font-semibold">[SIMULATED]</span>.
+        </span>
+      </label>
 
       <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4">
         {onCancel && (
@@ -146,7 +159,7 @@ export default function ScanForm({ onCreated, onCancel }: ScanFormProps) {
             Cancel
           </button>
         )}
-        <button type="submit" className="btn-primary" disabled={busy || targets.length === 0}>
+        <button type="submit" className="btn-primary" disabled={busy || targets.length === 0 || !authorized}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           {busy ? "Queueing…" : "Start scan"}
         </button>

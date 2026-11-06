@@ -6,9 +6,10 @@ interface FindingsTableProps {
   findings: Finding[];
   loading: boolean;
   showScan?: boolean;
+  onSelect?: (finding: Finding) => void;
 }
 
-export default function FindingsTable({ findings, loading, showScan = false }: FindingsTableProps) {
+export default function FindingsTable({ findings, loading, showScan = false, onSelect }: FindingsTableProps) {
   const cols = showScan ? 6 : 5;
   return (
     <div className="surface overflow-hidden">
@@ -41,12 +42,29 @@ export default function FindingsTable({ findings, loading, showScan = false }: F
             )}
             {!loading &&
               findings.map((finding) => (
-                <tr key={finding.id} className="align-top transition-colors hover:bg-wine-700/[0.03]">
+                <tr
+                  key={finding.id}
+                  className={`align-top transition-colors hover:bg-wine-700/[0.03] ${onSelect ? "cursor-pointer" : ""}`}
+                  onClick={onSelect ? () => onSelect(finding) : undefined}
+                >
                   <td className="px-5 py-3.5">
                     <SeverityBadge severity={finding.severity} />
                   </td>
                   <td className="max-w-md px-5 py-3.5">
-                    <p className="text-sm font-semibold text-navy-800">{finding.title}</p>
+                    {onSelect ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onSelect(finding);
+                        }}
+                        className="text-left text-sm font-semibold text-navy-800 hover:text-wine-700 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-wine-700"
+                      >
+                        {finding.title}
+                      </button>
+                    ) : (
+                      <p className="text-sm font-semibold text-navy-800">{finding.title}</p>
+                    )}
                     {finding.description && (
                       <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-500">
                         {finding.description}
@@ -67,6 +85,7 @@ export default function FindingsTable({ findings, loading, showScan = false }: F
                     <td className="px-5 py-3.5">
                       <Link
                         to={`/scans/${finding.scan}`}
+                        onClick={(e) => e.stopPropagation()}
                         className="text-xs font-semibold text-navy-700 hover:text-wine-700 hover:underline"
                       >
                         {finding.scan_name || "View scan"}

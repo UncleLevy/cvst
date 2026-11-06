@@ -20,6 +20,10 @@ class Vulnerability(models.Model):
     cvss_score = models.FloatField(null=True, blank=True)
     port = models.PositiveIntegerField(null=True, blank=True)
     service = models.CharField(max_length=100, blank=True)
+    source = models.CharField(max_length=20, blank=True)  # nmap | web | simulated
+    evidence = models.TextField(blank=True)  # what the scanner actually observed
+    recommendation = models.TextField(blank=True)
+    references = models.JSONField(default=list, blank=True)  # list of http(s) URLs
     discovered_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

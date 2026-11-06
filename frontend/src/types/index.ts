@@ -52,6 +52,10 @@ export interface Finding {
   cvss_score: number | null;
   port: number | null;
   service: string;
+  source: string;
+  evidence: string;
+  recommendation: string;
+  references: string[];
   discovered_at: string;
 }
 
